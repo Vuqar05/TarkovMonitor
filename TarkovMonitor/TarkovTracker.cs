@@ -325,6 +325,33 @@ namespace TarkovMonitor
             }
         }
 
+        /// <summary>
+        /// Resets every saved TarkovTracker key store to its default (empty)
+        /// value. Used when the stores cannot be decrypted, for example when a
+        /// portable copy is moved to another PC or Windows user, since the keys
+        /// are protected for the Windows user that saved them. Tarkov Monitor
+        /// must be restarted afterwards to reload the stores.
+        /// </summary>
+        public static void DiscardSavedTokenStorage()
+        {
+            lock (stateLock)
+            {
+                var settings = Properties.Settings.Default;
+                foreach (var name in new[]
+                {
+                    nameof(Properties.Settings.Default.tarkovTrackerToken),
+                    nameof(Properties.Settings.Default.tarkovTrackerTokens),
+                    nameof(Properties.Settings.Default.tarkovTrackerModeTokens),
+                    nameof(Properties.Settings.Default.tarkovTrackerVerifiedModeTokenHashes),
+                    nameof(Properties.Settings.Default.tarkovTrackerOrgTokenStore),
+                })
+                {
+                    settings[name] = settings.Properties[name]?.DefaultValue as string ?? "";
+                }
+                settings.Save();
+            }
+        }
+
         public static bool CanChangeOrgKeyStorage
         {
             get

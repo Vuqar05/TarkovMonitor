@@ -50,10 +50,7 @@ namespace TarkovMonitor.Updating
         /// read-only location can still download; only the final copy needs
         /// write access to the application directory.
         /// </summary>
-        internal static string StagingRoot => Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "TarkovMonitor",
-            StagingFolderName);
+        internal static string StagingRoot => AppPaths.UpdateStagingRoot(StagingFolderName);
 
         internal static string InstallDirectory => AppContext.BaseDirectory.TrimEnd(
             Path.DirectorySeparatorChar,

@@ -7,9 +7,7 @@ namespace TarkovMonitor
     /// </summary>
     internal class Sound
     {
-        public static string AppDataFolder => Application.UserAppDataPath;
-
-		public static string CustomSoundsPath => Path.Join(AppDataFolder, "..", "sounds");
+		public static string CustomSoundsPath => AppPaths.CustomSoundsPath;
 		private static Dictionary<string, bool> customSounds = new();
         public static string SoundPath(string key)
         {

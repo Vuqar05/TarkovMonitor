@@ -153,10 +153,7 @@ public sealed class DiagnosticsService
 
     public DiagnosticsService(string? diagnosticsDirectory = null)
     {
-        DiagnosticsDirectory = diagnosticsDirectory ?? Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "TarkovMonitor",
-                "Diagnostics");
+        DiagnosticsDirectory = diagnosticsDirectory ?? AppPaths.DiagnosticsDirectory;
     }
 
     public string DiagnosticsDirectory { get; }

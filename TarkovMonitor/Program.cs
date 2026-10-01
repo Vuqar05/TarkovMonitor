@@ -16,6 +16,13 @@ namespace TarkovMonitor
                 return;
             }
 
+            // Portable mode keeps every data file next to the executable. Create
+            // the folder up front because SQLite will not create it on its own.
+            if (AppPaths.IsPortable)
+            {
+                Directory.CreateDirectory(AppPaths.PortableDataRoot);
+            }
+
             var diagnostics = new DiagnosticsService();
             Application.ThreadException += (_, args) => diagnostics.Capture(
                 new DiagnosticContext("TM-APP-001", "UnhandledUiException", "Application", "Thread", "The application encountered an unexpected UI failure."),

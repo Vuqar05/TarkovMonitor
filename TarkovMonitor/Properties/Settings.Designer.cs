@@ -430,5 +430,41 @@ namespace TarkovMonitor.Properties {
                 this["floatingTimerPanelShowRunThrough"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool autoScreenshotEnabled {
+            get {
+                return ((bool)(this["autoScreenshotEnabled"]));
+            }
+            set {
+                this["autoScreenshotEnabled"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("10")]
+        public int autoScreenshotIntervalSeconds {
+            get {
+                return ((int)(this["autoScreenshotIntervalSeconds"]));
+            }
+            set {
+                this["autoScreenshotIntervalSeconds"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("44")]
+        public int autoScreenshotKey {
+            get {
+                return ((int)(this["autoScreenshotKey"]));
+            }
+            set {
+                this["autoScreenshotKey"] = value;
+            }
+        }
     }
 }

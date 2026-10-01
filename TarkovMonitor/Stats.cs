@@ -4,7 +4,7 @@ namespace TarkovMonitor
 {
     internal static class Stats
     {
-        public static string DatabasePath => Path.Join(Application.UserAppDataPath, "..", "TarkovMonitor.db");
+        public static string DatabasePath => AppPaths.StatsDatabasePath;
         private static readonly Lazy<StatsDatabase> Database = new(() => new StatsDatabase(DatabasePath));
 
         public static void ClearData() => Database.Value.ClearData();

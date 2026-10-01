@@ -72,11 +72,13 @@ namespace TarkovMonitor
         private readonly LogRepository logRepository;
         private readonly GroupManager groupManager;
         private readonly TimersManager timersManager;
+        private readonly AutoScreenshotService autoScreenshotService;
         private readonly Updating.UpdateCoordinator updateCoordinator;
         private readonly System.Timers.Timer runthroughTimer;
         private readonly System.Timers.Timer scavCooldownTimer;
         private LocalizationService localizationService;
         private bool inRaid;
+        private bool positionLoggedThisRaid;
         private bool gameWatcherStarted;
         private int trackerStatusTransitionDepth;
         private FormWindowState lastPublishedWindowState = FormWindowState.Normal;
@@ -138,6 +140,8 @@ namespace TarkovMonitor
 
             timersManager = new TimersManager(eft, messageLog);
 
+            autoScreenshotService = new AutoScreenshotService(eft, messageLog);
+
             // Creates the dependency injection services which are the in-betweens for the Blazor interface and the rest of the C# application.
             var services = new ServiceCollection();
             services.AddWindowsFormsBlazorWebView();
@@ -155,8 +159,16 @@ namespace TarkovMonitor
             services.AddSingleton<LogRepository>(logRepository);
             services.AddSingleton<GroupManager>(groupManager);
             services.AddSingleton<TimersManager>(timersManager);
+            services.AddSingleton<AutoScreenshotService>(autoScreenshotService);
             services.AddSingleton<MainBlazorUI>(this);
 
+            // In portable mode keep the WebView2 cache and storage next to the
+            // executable instead of the default per-user location.
+            var webViewUserDataFolder = AppPaths.WebView2UserDataFolder;
+            if (webViewUserDataFolder != null)
+            {
+                blazorWebView1.BlazorWebViewInitializing += (_, e) => e.UserDataFolder = webViewUserDataFolder;
+            }
             blazorWebView1.HostPage = "wwwroot\\index.html";
             var serviceProvider = services.BuildServiceProvider();
             blazorWebView1.Services = serviceProvider;
@@ -854,6 +866,7 @@ namespace TarkovMonitor
             closing = true;
             SocketClient.ConnectionInterrupted -= SocketClient_ConnectionInterrupted;
             _ = SocketClient.StopAsync();
+            autoScreenshotService.Dispose();
             base.OnFormClosed(e);
         }
 
@@ -863,7 +876,13 @@ namespace TarkovMonitor
             {
                 return;
             }
-            messageLog.AddMessage($"Current position on {e.RaidInfo.Map.name}: x={e.Position.X}, y={e.Position.Y}, z={e.Position.Z}.");
+            // Automatic screenshots update the position every few seconds, so
+            // only log the first update of each raid to keep the log readable.
+            if (!AutoScreenshotService.Enabled || !positionLoggedThisRaid)
+            {
+                messageLog.AddMessage($"Current position on {e.RaidInfo.Map.name}: x={e.Position.X}, y={e.Position.Y}, z={e.Position.Z}.");
+                positionLoggedThisRaid = true;
+            }
             List<JsonObject> socketMessages = new();
             socketMessages.Add(SocketClient.GetPlayerPositionMessage(e));
             //await SocketClient.UpdatePlayerPosition(e);
@@ -1636,6 +1655,7 @@ namespace TarkovMonitor
         private async void Eft_RaidStart(object? sender, RaidInfoEventArgs e)
         {
             inRaid = true;
+            positionLoggedThisRaid = false;
             Stats.AddRaid(e);
             
             // GameStarting is not always logged for scav raids, so pause here as a fallback.

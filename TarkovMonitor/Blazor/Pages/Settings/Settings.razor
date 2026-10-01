@@ -10,6 +10,7 @@
 @inject IDialogService DialogService
 @inject LocalizationService LocalizationService
 @inject TimersManager timersManager
+@inject AutoScreenshotService AutoScreenshot
 @inject MainBlazorUI WindowHost
 @layout AppLayout
 @implements IDisposable
@@ -150,6 +151,17 @@
                 @foreach (var warning in TrackerStorageWarnings)
                 {
                     <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">@warning</MudAlert>
+                }
+                @if (TrackerStorageWarnings.Count > 0)
+                {
+                    @if (TrackerStorageDiscarded)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">Saved TarkovTracker keys were discarded. Restart Tarkov Monitor, then import your API tokens again.</MudAlert>
+                    }
+                    else
+                    {
+                        <MudButton @onclick="DiscardTrackerStorage" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Warning" StartIcon="@Icons.Material.Filled.DeleteForever" Class="mt-2">Discard unreadable saved keys</MudButton>
+                    }
                 }
                 <div class="tracker-key-toolbar">
                     @if (CanImportOrgKey)
@@ -369,6 +381,22 @@
             <div>
                 <MudSwitch @bind-Value="@AutomaticallyDeleteScreenshotsAfterRaid" Label="@LocalizationService.GetString("AutomaticallyDeleteScreenshotsAfterRaid")" Color="Color.Info" />
             </div>
+            <div>
+                <MudSwitch @bind-Value="@AutoScreenshotEnabled" Label="Automatically take screenshots in raid" Color="Color.Info" />
+            </div>
+            @if (AutoScreenshotEnabled)
+            {
+                <MudStack Row="true" Spacing="2" Class="mb-2">
+                    <MudNumericField @bind-Value="@AutoScreenshotIntervalSeconds" T="int" Label="Interval (seconds)" Min="@AutoScreenshotService.MinimumIntervalSeconds" Max="@AutoScreenshotService.MaximumIntervalSeconds" Variant="Variant.Outlined" Margin="Margin.Dense" Class="tm-input" />
+                    <MudSelect @bind-Value="@AutoScreenshotKey" T="int" Label="Screenshot key" RelativeWidth="DropdownWidth.Adaptive" AnchorOrigin="Origin.BottomLeft" PopoverFixed="false" Modal="false" MaxHeight="280" Margin="Margin.Dense" Dense="true" Class="tm-select tm-select--field" PopoverClass="tm-select-popover" ListClass="tm-select-list">
+                        @foreach (var key in AutoScreenshotService.SelectableKeys)
+                        {
+                            <MudSelectItem T="int" Value="@key.Value">@key.Key</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudStack>
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mb-2">The key must match your EFT screenshot keybind. It is only pressed while EFT is the focused window, using simulated key presses; use at your own risk. Consider enabling automatic deletion of raid screenshots.</MudAlert>
+            }
             <MudSelect @bind-Value="@MapOverrideSelect" T="string" Label="@LocalizationService.GetString("OfflineMap")" RelativeWidth="DropdownWidth.Adaptive" ShrinkLabel="true" HelperText="@LocalizationService.GetString("MapToUseForOfflineRaids")" AnchorOrigin="Origin.BottomLeft" PopoverFixed="false" Modal="false" MaxHeight="280" Margin="Margin.Dense" Dense="true" Class="tm-select tm-select--field" PopoverClass="tm-select-popover" ListClass="tm-select-list" xs="3">
                 <MudSelectItem T="string" Value="@string.Empty">@LocalizationService.GetString("None")</MudSelectItem>
                 @foreach (var map in TarkovDev.Maps)
@@ -962,6 +990,30 @@
 
     private IReadOnlyList<TarkovTracker.OrgKeySummary> OrgKeys => TarkovTracker.GetOrgKeys();
     private IReadOnlyList<string> TrackerStorageWarnings => TarkovTracker.GetStorageWarnings();
+    private bool TrackerStorageDiscarded;
+
+    private async Task DiscardTrackerStorage()
+    {
+        bool? confirmed = await DialogService.ShowMessageBoxAsync(
+            "Discard saved keys",
+            "Saved TarkovTracker keys can only be decrypted by the Windows user and PC that saved them. Discard the unreadable keys so you can import them again? Tarkov Monitor must be restarted afterwards.",
+            yesText: "Discard",
+            cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+        try
+        {
+            TarkovTracker.DiscardSavedTokenStorage();
+            TrackerStorageDiscarded = true;
+            messageLog.AddMessage("Saved TarkovTracker keys were discarded. Restart Tarkov Monitor to import them again.", "info");
+        }
+        catch (Exception ex)
+        {
+            messageLog.AddMessage($"Saved TarkovTracker keys could not be discarded: {ex.Message}", "exception");
+        }
+    }
     private bool OrgKeyChangesEnabled => TarkovTracker.CanChangeOrgKeyStorage;
     private List<TarkovTracker.OrgKeySummary> PendingOrgKeys => OrgKeys.Where(key => !key.IsBound).ToList();
     private List<TarkovTracker.OrgKeySummary> BoundOrgKeys => OrgKeys.Where(key => key.IsBound).ToList();
@@ -1502,8 +1554,7 @@
 
     private string GetCustomSoundsPath()
     {
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(localAppData, "TarkovMonitor", "sounds");
+        return Sound.CustomSoundsPath;
     }
 
     private string GetCustomSoundPath(string key)
@@ -1578,6 +1629,41 @@
         set
         {
             Properties.Settings.Default.navigateMapOnPositionUpdate = value;
+            Properties.Settings.Default.Save();
+        }
+    }
+
+    public bool AutoScreenshotEnabled
+    {
+        get => Properties.Settings.Default.autoScreenshotEnabled;
+        set
+        {
+            Properties.Settings.Default.autoScreenshotEnabled = value;
+            Properties.Settings.Default.Save();
+            AutoScreenshot.Restart();
+        }
+    }
+
+    public int AutoScreenshotIntervalSeconds
+    {
+        get => AutoScreenshotService.IntervalSeconds;
+        set
+        {
+            Properties.Settings.Default.autoScreenshotIntervalSeconds = Math.Clamp(
+                value,
+                AutoScreenshotService.MinimumIntervalSeconds,
+                AutoScreenshotService.MaximumIntervalSeconds);
+            Properties.Settings.Default.Save();
+            AutoScreenshot.Restart();
+        }
+    }
+
+    public int AutoScreenshotKey
+    {
+        get => Properties.Settings.Default.autoScreenshotKey;
+        set
+        {
+            Properties.Settings.Default.autoScreenshotKey = value;
             Properties.Settings.Default.Save();
         }
     }
